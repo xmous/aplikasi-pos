@@ -18,3 +18,4 @@ yarn-error.log
 *.tar.gz
 *.sql
 !database_kosong.sql
+*.zip
