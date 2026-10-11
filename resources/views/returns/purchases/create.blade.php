@@ -1,0 +1,21 @@
+@extends('layouts.pos')
+@section('title','Retur '.$purchase->number)
+@section('body_class','pos-stock-module')
+@section('content')
+<div class="ga-page-head stock-head"><div class="ga-page-title"><span class="ga-eyebrow"><i class="fa-solid fa-rotate-left"></i> RETUR KE SUPPLIER</span><h2>Retur {{ $purchase->number }}</h2><p class="mb-0">{{ $purchase->supplier?->name??'Tanpa supplier' }} · {{ $purchase->warehouse?->name }} · {{ $purchase->purchase_date->format('d/m/Y') }}</p></div><a href="{{ route('purchases.show',$purchase) }}" class="btn btn-outline-light"><i class="fa-solid fa-arrow-left"></i> Kembali</a></div>
+@if($errors->any())<div class="stock-error"><i class="fa-solid fa-circle-exclamation"></i><span><b>Retur belum dapat disimpan</b>{{ $errors->first() }}</span></div>@endif
+<div class="stock-notice warning"><i class="fa-solid fa-triangle-exclamation"></i><div><b>Pastikan barang benar-benar keluar dari gudang</b><span>Setelah disimpan, stok berkurang dengan FEFO dan nilai bersih pembelian berubah. Retur tidak dapat diedit atau dihapus.</span></div></div>
+@if(!$hasRemainingItems)<div class="stock-notice success"><i class="fa-solid fa-circle-check"></i><div><b>Semua barang sudah diretur</b><span>Tidak ada sisa kuantitas yang dapat dikembalikan.</span></div></div>@endif
+<form method="post" action="{{ route('purchase-returns.store',$purchase) }}" class="return-form" data-purchase-return data-number="{{ $purchase->number }}" @if(!$hasRemainingItems) hidden @endif>@csrf
+<section class="stock-card"><div class="return-card-head"><span><i class="fa-solid fa-boxes-stacked"></i><b>Pilih Barang Retur</b></span><strong id="return-total">Rp 0</strong></div><div class="table-responsive"><table class="table stock-table align-middle mb-0"><thead><tr><th>Barang</th><th>Dibeli</th><th>Sudah Retur</th><th>Sisa</th><th>Stok Gudang</th><th>Nilai/Unit</th><th>Qty Retur</th><th class="text-end">Subtotal</th></tr></thead><tbody>
+@foreach($purchase->items as $i)
+@php($returned=(float)($returnedQuantities[$i->id]??0))
+@php($remaining=max(0,(float)$i->quantity-$returned))
+@php($unitCost=(float)$i->quantity>0?(float)$i->subtotal/(float)$i->quantity:0)
+@php($stock=(float)($availableStocks[$i->product_id]??0))
+<tr class="return-row {{ $remaining<=0?'disabled':'' }}" data-product="{{ $i->product_id }}" data-factor="{{ (float)$i->conversion_factor }}" data-stock="{{ $stock }}" data-cost="{{ $unitCost }}" data-name="{{ $i->product->name }}"><td><div class="cell-stack"><b>{{ $i->product->name }}</b><small>{{ $i->product->sku }} · {{ $i->unit?->symbol }}</small></div></td><td>{{ \App\Support\Number::quantity($i->quantity) }} {{ $i->unit?->symbol }}</td><td>{{ \App\Support\Number::quantity($returned) }}</td><td><b>{{ \App\Support\Number::quantity($remaining) }}</b></td><td>{{ \App\Support\Number::quantity($stock) }} {{ $i->product->unit?->symbol }}</td><td>Rp {{ number_format($unitCost,0,',','.') }}</td><td><div class="input-group return-qty"><input name="items[{{ $i->id }}][quantity]" type="number" min="0" max="{{ $remaining }}" step=".001" value="{{ old('items.'.$i->id.'.quantity',0) }}" class="form-control return-input" @disabled($remaining<=0)><span class="input-group-text">{{ $i->unit?->symbol }}</span></div><small>= <span class="base-preview">0</span> {{ $i->product->unit?->symbol }}</small></td><td class="text-end"><b class="line-return">Rp 0</b></td></tr>
+@endforeach
+</tbody></table></div></section>
+<section class="form-card return-reason"><header><i class="fa-solid fa-note-sticky"></i><span><b>Alasan Retur</b><small>Wajib untuk audit dan komunikasi supplier.</small></span></header><div class="reason-chips">@foreach(['Barang rusak','Barang tidak sesuai','Jumlah berlebih','Kedaluwarsa terlalu dekat','Kesalahan pengiriman'] as $r)<button type="button" data-return-reason="{{ $r }}">{{ $r }}</button>@endforeach</div><textarea name="notes" id="return-notes" rows="4" minlength="5" maxlength="2000" class="form-control" required>{{ old('notes') }}</textarea><footer class="form-footer inner"><a href="{{ route('purchases.show',$purchase) }}" class="btn btn-light">Batal</a><button class="btn btn-danger"><i class="fa-solid fa-rotate-left"></i> Periksa & Simpan</button></footer></section>
+</form>
+@endsection
